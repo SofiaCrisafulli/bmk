@@ -40,15 +40,13 @@
     ],
     'assets': {
     'web.assets_backend': [
-        # three.js y OrbitControls (sirve traerlos desde tu módulo)
-        'stock_3d_view/static/lib/three/three.min.js',
-        'stock_3d_view/static/lib/three/OrbitControls.js',
-        # tu template QWeb (si lo tienes)
-        'stock_3d_view/static/src/xml/location_3d_templates.xml',
-        # tu JS (después de three)
+        'stock_3d_view/static/src/xml/location_3d_templates.xml',  # si tenés el template
+        'stock_3d_view/static/src/js/open_form_3d_view.js',        # TU JS
+        # 'stock_3d_view/static/src/scss/stock_3d_view.scss',       # reactivá solo cuando compile
+    ],
+    # Cárgalo también en el lazy para evitar tiempos de carrera
+    'web.assets_backend_lazy': [
         'stock_3d_view/static/src/js/open_form_3d_view.js',
-        # tu CSS opcional
-        #'stock_3d_view/static/src/scss/stock_3d_view.scss',
     ],
 },
     'images': [
