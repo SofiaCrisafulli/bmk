@@ -40,8 +40,8 @@
     ],
     'assets': {
     'web.assets_backend': [
-        'stock_3d_view/static/src/xml/location_3d_templates.xml',  # si tenés el template
-        'stock_3d_view/static/src/js/open_form_3d_view.js',        # TU JS
+        'stock_3d_view/static/src/xml/stock_location_views.xml',  # si tenés el template
+        'stock_3d_view/static/src/js/form_3d_view.js',        # TU JS
         # 'stock_3d_view/static/src/scss/stock_3d_view.scss',       # reactivá solo cuando compile
     ],
     # Cárgalo también en el lazy para evitar tiempos de carrera
