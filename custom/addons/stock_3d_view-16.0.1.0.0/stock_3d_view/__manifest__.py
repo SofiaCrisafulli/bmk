@@ -39,18 +39,18 @@
         'views/stock_location_views.xml',
     ],
     'assets': {
-        'web.assets_backend': [
-            '/stock_3d_view/static/src/js/form_3d_view.js',
-            '/stock_3d_view/static/src/js/listview_3d.js',
-            '/stock_3d_view/static/src/css/3d_view.scss',
-            'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.js',
-            'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
-            "https://cdn.jsdelivr.net/npm/three@0.122.0/examples/js/controls/OrbitControls.min.js",
-            'stock_3d_view/static/src/xml/stock_location_3d_templates.xml',
-            'stock_3d_view/static/src/xml/stock_location_breadcrumb_templates.xml',
-            'stock_3d_view/static/src/xml/stock_location_modal_templates.xml',
-        ],
-    },
+    'web.assets_backend': [
+        # three.js y OrbitControls (sirve traerlos desde tu módulo)
+        'stock_3d_view/static/lib/three/three.min.js',
+        'stock_3d_view/static/lib/three/OrbitControls.js',
+        # tu template QWeb (si lo tienes)
+        'stock_3d_view/static/src/xml/location_3d_templates.xml',
+        # tu JS (después de three)
+        'stock_3d_view/static/src/js/open_form_3d_view.js',
+        # tu CSS opcional
+        'stock_3d_view/static/src/scss/stock_3d_view.scss',
+    ],
+},
     'images': [
         'static/description/banner.jpg',
     ],
