@@ -92,6 +92,17 @@ class OpenForm3D extends Component {
         T.renderer.setPixelRatio(window.devicePixelRatio);
         root.appendChild(T.renderer.domElement);
 
+        T.controls = null;
+        if (window.THREE && THREE.OrbitControls) {
+            T.controls = new THREE.OrbitControls(T.camera, T.renderer.domElement);
+            if (typeof T.controls.update === "function") {
+                T.controls.update();
+            }
+            console.log("[3D] OrbitControls OK:", typeof T.controls.update);
+        } else {
+            console.warn("[3D] OrbitControls no disponible");
+        }
+
         // Piso
         T.scene.add(new THREE.Mesh(
             new THREE.BoxGeometry(1200, 0, 1200),
@@ -113,7 +124,7 @@ class OpenForm3D extends Component {
 
         await this.buildLocations(data);
 
-        // ⬅️ encajar cámara al conjunto
+
         this.fitToGroup();
 
         T.onResize = () => {
@@ -132,7 +143,7 @@ class OpenForm3D extends Component {
         animate();
     }
 
-    // ✅ encajar cámara para ver todo
+
     fitToGroup(padding = 1.25) {
         const THREE = window.THREE;
         const T = this.T;
@@ -144,8 +155,7 @@ class OpenForm3D extends Component {
 
         const maxSize = Math.max(size.x, size.y, size.z);
         const fov = (T.camera.fov * Math.PI) / 180;
-        let dist = Math.abs(maxSize / (2 * Math.tan(fov / 2)));
-        dist *= padding;
+        let dist = Math.abs(maxSize / (2 * Math.tan(fov / 2))) * padding;
 
         T.camera.near = Math.max(0.1, dist / 100);
         T.camera.far = dist * 1000;
@@ -154,8 +164,12 @@ class OpenForm3D extends Component {
         T.camera.updateProjectionMatrix();
 
         if (T.controls) {
-            T.controls.target.copy(center);
-            T.controls.update();
+            if (typeof T.controls.target?.copy === "function") {
+                T.controls.target.copy(center);
+            }
+            if (typeof T.controls.update === "function") {
+                T.controls.update();
+            }
         }
     }
 
