@@ -26,25 +26,46 @@ class OpenForm3D extends Component {
             const root = this.containerRef.el;
             if (!root) return;
 
-            // Contexto
             const ctx = this.props.action?.context || {};
             const company_id = ctx.company_id ?? localStorage.getItem("company_id");
-            const loc_id     = ctx.loc_id     ?? localStorage.getItem("location_id");
+            const loc_id = ctx.loc_id ?? localStorage.getItem("location_id");
             if (ctx.company_id) localStorage.setItem("company_id", ctx.company_id);
-            if (ctx.loc_id)     localStorage.setItem("location_id", ctx.loc_id);
+            if (ctx.loc_id) localStorage.setItem("location_id", ctx.loc_id);
 
-            // Traer layout
-            const data = await this.rpc("/3Dstock/data/standalone", { company_id, loc_id });
+            // 1) Traer data y loguear
+            let data;
+            try {
+                data = await this.rpc("/3Dstock/data/standalone", { company_id, loc_id });
+            } catch (e) {
+                console.error("[3D] RPC standalone error:", e);
+                data = {};
+            }
+            console.log("[3D] standalone keys:", Object.keys(data || {}).length, "sample:", Object.entries(data || {})[0]);
 
-            // Dentro de onMounted, después de pedir data:
-        console.log("[3D] standalone data:", data, "keys:", Object.keys(data || {}).length);
-        if (!data || Object.keys(data).length === 0) {
-            console.warn("[3D] /3Dstock/data/standalone devolvió vacío. Dibujo un cubo dummy para verificar render.");
-        }
-
-            // Inicializar escena
+            // 2) Inicializar escena
             await this.initThree(root, data);
+
+            // 3) Si no hay cubos, dibujar uno de prueba para validar render
+            setTimeout(() => {
+                const count = this.T.group?.children?.length || 0;
+                console.log("[3D] cubos dibujados:", count);
+                if (count === 0) {
+                    console.warn("[3D] No hay cubos. Dibujo uno de prueba.");
+                    const THREE = window.THREE;
+                    const geom = new THREE.BoxGeometry(200, 80, 120);
+                    const edges = new THREE.EdgesGeometry(geom);
+                    const mat = new THREE.MeshBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.3 });
+                    const cube = new THREE.Mesh(geom, mat);
+                    const wire = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x404040 }));
+                    cube.position.set(0, 0, 0);
+                    wire.position.set(0, 0, 0);
+                    this.T.group.add(cube);
+                    this.T.scene.add(wire);
+                    console.log("[3D] cubo test agregado");
+                }
+            }, 0);
         });
+
 
         // Desmontaje
         onWillUnmount(() => this.teardownThree());
@@ -91,9 +112,9 @@ class OpenForm3D extends Component {
         this.mountLegend(root);
 
         // Picking
-        T.group = new THREE.Group();  T.scene.add(T.group);
+        T.group = new THREE.Group(); T.scene.add(T.group);
         T.raycaster = new THREE.Raycaster();
-        T.pointer   = new THREE.Vector2();
+        T.pointer = new THREE.Vector2();
 
         // Construir ubicaciones
         await this.buildLocations(data);
@@ -118,94 +139,68 @@ class OpenForm3D extends Component {
 
     // ========= Construcción de cubos + rótulos =========
     async buildLocations(data) {
-  const THREE = window.THREE;
-  const T = this.T;
+        const THREE = window.THREE;
+        const T = this.T;
 
-  const EDGE_COLOR = 0x404040;
-  const GREY_FILL  = 0x8c8c8c;
-  const SELECTED   = 0xcc0000;
-  const GREEN      = 0x00802b;
-  const YELLOW     = 0xe6b800;
-  const BLUE       = 0x0066ff;
+        const EDGE_COLOR = 0x404040, GREY = 0x8c8c8c, RED = 0xcc0000, GREEN = 0x00802b, YELLOW = 0xe6b800, BLUE = 0x0066ff;
+        const currentLocId = String(localStorage.getItem("location_id") || "");
 
-  const currentLocId = String(localStorage.getItem("location_id") || "");
+        let drawn = 0;
+        for (const [code, raw] of Object.entries(data || {})) {
+            console.log("[3D] item:", code, raw);
+            const v = Array.isArray(raw) ? raw.map(n => Number(n)) : [];
+            // v esperado: [x,y,z, dx, dz, dy, loc_id]  (si tu endpoint usa otro orden, ajustá acá)
+            let [x, y, z, dx, dz, dy, loc_id] = v;
 
-  let drawn = 0;
-  for (const [code, vRaw] of Object.entries(data || {})) {
-    // Logueo bruto
-    console.log("[3D] item:", code, vRaw);
+            // Defaults para evitar tamaños 0
+            dx = Number(dx) || 100;
+            dy = Number(dy) || 60;
+            dz = Number(dz) || 80;
+            x = Number(x) || 0;
+            y = Number(y) || 0;
+            z = Number(z) || 0;
 
-    // Algunos endpoints devuelven strings -> convierto
-    const v = Array.isArray(vRaw) ? vRaw.map(n => Number(n)) : [];
-    let [x, y, z, dx, dz, dy, loc_id] = v;
+            const geom = new THREE.BoxGeometry(dx, dy, dz);
+            geom.translate(0, dy / 2, 0);
+            const edges = new THREE.EdgesGeometry(geom);
 
-    // Coerción defensiva por si vienen 0 o undefined
-    dx = dx || v[3] || 1;
-    dz = dz || v[4] || 1;
-    dy = dy || v[5] || 1;
+            // Color por ocupación (si el RPC falla → gris tenue)
+            let color = GREY, opacity = 0.18;
+            try {
+                const [hasQty, percent] = await this.rpc("/3Dstock/data/quantity", { loc_code: code });
+                const isCurrent = String(loc_id) === currentLocId;
+                if (isCurrent) {
+                    if (hasQty > 0) {
+                        if (percent > 100) { color = RED; opacity = 0.60; }
+                        else if (percent > 50) { color = YELLOW; opacity = 0.35; }
+                        else { color = GREEN; opacity = 0.35; }
+                    } else {
+                        color = (percent === -1) ? GREEN : BLUE;
+                        opacity = 0.35;
+                    }
+                }
+            } catch (e) {
+                console.warn("[3D] /quantity fallo para", code, e);
+            }
 
-    if (!dx || !dy || !dz) {
-      console.warn("[3D] descartado por tamaño 0:", code, vRaw);
-      continue;
-    }
+            const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity });
+            const cube = new THREE.Mesh(geom, mat);
+            const wire = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: EDGE_COLOR }));
 
-    const geom  = new THREE.BoxGeometry(dx, dy, dz);
-    geom.translate(0, dy / 2, 0);
-    const edges = new THREE.EdgesGeometry(geom);
+            cube.position.set(x, y, z);
+            wire.position.set(x, y, z);
 
-    // Color por ocupación (si el RPC falla, sigo en gris)
-    let color = GREY_FILL, opacity = 0.25;
-    try {
-      const [hasQty, percent] = await this.rpc("/3Dstock/data/quantity", { loc_code: code });
-      const isCurrent = String(loc_id) === currentLocId;
+            cube.name = code;
+            cube.userData = { color, loc_id };
 
-      if (isCurrent) {
-        if (hasQty > 0) {
-          if (percent > 100)      { color = SELECTED; opacity = 0.60; }
-          else if (percent > 50)  { color = YELLOW;   opacity = 0.35; }
-          else                    { color = GREEN;    opacity = 0.35; }
-        } else {
-          color   = (percent === -1) ? GREEN : BLUE;
-          opacity = 0.35;
+            T.group.add(cube);
+            T.scene.add(wire);
+            drawn++;
         }
-      } else {
-        color = GREY_FILL; opacity = 0.18;
-      }
-    } catch (e) {
-      console.warn("[3D] /quantity falló para", code, e);
-      color = GREY_FILL; opacity = 0.18;
+
+        console.log("[3D] total dibujados:", drawn);
     }
 
-    const mat  = new THREE.MeshBasicMaterial({ color, transparent: true, opacity });
-    const cube = new THREE.Mesh(geom, mat);
-    const wire = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: EDGE_COLOR }));
-
-    // Si x,y,z vienen vacíos, ubico en 0,0,0 para ver algo
-    cube.position.set(x || 0, y || 0, z || 0);
-    wire.position.set(x || 0, y || 0, z || 0);
-
-    cube.name = code;
-    cube.userData = { color, loc_id };
-
-    this.T.group.add(cube);
-    this.T.scene.add(wire);
-    drawn++;
-  }
-
-  // Si no dibujó nada, meto un cubo dummy para confirmar render
-  if (!drawn) {
-    console.warn("[3D] No se dibujó ningún cubo. Agrego dummy.");
-    const geom  = new THREE.BoxGeometry(200, 80, 120);
-    const edges = new THREE.EdgesGeometry(geom);
-    const mat   = new THREE.MeshBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.3 });
-    const cube  = new THREE.Mesh(geom, mat);
-    const wire  = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x404040 }));
-    cube.position.set(0, 0, 0);
-    wire.position.set(0, 0, 0);
-    this.T.group.add(cube);
-    this.T.scene.add(wire);
-  }
-}
 
     // ========= Texto sobre la cara superior =========
     addTextLabel(code, box) {
@@ -219,7 +214,7 @@ class OpenForm3D extends Component {
             const textSize = (dx > dz) ? (dz / 2) - (dz / 2.9) : (dx / 2) - (dx / 2.9);
 
             const shapes = font.generateShapes(code, Math.max(8, textSize));
-            const geo    = new THREE.ShapeGeometry(shapes);
+            const geo = new THREE.ShapeGeometry(shapes);
             geo.translate(0, (dy / 2) - 1, 0);
 
             const mesh = new THREE.Mesh(geo, textMaterial);
@@ -254,8 +249,8 @@ class OpenForm3D extends Component {
 
         const bodyHtml = (products && products.length)
             ? `<div style="max-height:55vh;overflow:auto">
-                 ${products.map((p) => `<div>${String(p).replace(/[&<>"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]))}</div>`).join("")}
-               </div>`
+                ${products.map((p) => `<div>${String(p).replace(/[&<>"]/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[s]))}</div>`).join("")}
+            </div>`
             : "<div>Sin productos</div>";
 
         this.dialog.add(ConfirmationDialog, {
@@ -263,8 +258,8 @@ class OpenForm3D extends Component {
             body: bodyHtml,
             confirmLabel: "OK",
             cancelLabel: "Cerrar",
-            confirm: () => {},
-            cancel: () => {},
+            confirm: () => { },
+            cancel: () => { },
         });
     }
 
@@ -272,13 +267,13 @@ class OpenForm3D extends Component {
     mountLegend(root) {
         const legend = document.createElement("div");
         legend.style.cssText =
-          "position:absolute;right:12px;top:12px;background:rgba(255,255,255,.92);padding:8px 10px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.08);font-size:12px";
+            "position:absolute;right:12px;top:12px;background:rgba(255,255,255,.92);padding:8px 10px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.08);font-size:12px";
         legend.innerHTML = `
-          <div style="display:flex;align-items:center;gap:6px;margin:2px 0"><span style="width:12px;height:12px;background:#cc0000;display:inline-block"></span> Overload</div>
-          <div style="display:flex;align-items:center;gap:6px;margin:2px 0"><span style="width:12px;height:12px;background:#e6b800;display:inline-block"></span> Almost Full</div>
-          <div style="display:flex;align-items:center;gap:6px;margin:2px 0"><span style="width:12px;height:12px;background:#00802b;display:inline-block"></span> Free Space</div>
-          <div style="display:flex;align-items:center;gap:6px;margin:2px 0"><span style="width:12px;height:12px;background:#0066ff;display:inline-block"></span> No Product/Load</div>
-        `;
+        <div style="display:flex;align-items:center;gap:6px;margin:2px 0"><span style="width:12px;height:12px;background:#cc0000;display:inline-block"></span> Overload</div>
+        <div style="display:flex;align-items:center;gap:6px;margin:2px 0"><span style="width:12px;height:12px;background:#e6b800;display:inline-block"></span> Almost Full</div>
+        <div style="display:flex;align-items:center;gap:6px;margin:2px 0"><span style="width:12px;height:12px;background:#00802b;display:inline-block"></span> Free Space</div>
+        <div style="display:flex;align-items:center;gap:6px;margin:2px 0"><span style="width:12px;height:12px;background:#0066ff;display:inline-block"></span> No Product/Load</div>
+    `;
         root.style.position = "relative";
         root.appendChild(legend);
     }
@@ -290,15 +285,15 @@ class OpenForm3D extends Component {
             T.renderer?.domElement?.removeEventListener("dblclick", T.onDblClick);
             if (T.animateId) cancelAnimationFrame(T.animateId);
             T.renderer?.dispose?.();
-        } catch (_) {}
+        } catch (_) { }
     }
 }
 
 // Template inline (evita assets_qweb mientras migrás)
 OpenForm3D.template = xml/* xml */`
-  <div class="o_3d_wrap">
-    <div t-ref="container" class="o_3d_container" style="width:100%; height:70vh; position:relative;"></div>
-  </div>
+<div class="o_3d_wrap">
+<div t-ref="container" class="o_3d_container" style="width:100%; height:70vh; position:relative;"></div>
+</div>
 `;
 
 // Registro del client action
