@@ -40,11 +40,11 @@
     ],
     'assets': {
     'web.assets_backend': [
-         'stock_3d_view/static/src/js/form_3d_view.js',
+        'stock_3d_view/static/src/js/form_3d_view.js',
     ],
     # Cárgalo también en el lazy para evitar tiempos de carrera
     'web.assets_backend_lazy': [
-        #'stock_3d_view/static/src/xml/*.xml',
+       'stock_3d_view/static/src/xml/*.xml',
     ],
 },
     'images': [
