@@ -40,6 +40,8 @@
     ],
     'assets': {
     'web.assets_backend': [
+        'stock_3d_view/static/lib/three/three.min.js',
+        'stock_3d_view/static/lib/three/OrbitControls.js',
         'stock_3d_view/static/src/js/form_3d_view.js',
     ],
     # Cárgalo también en el lazy para evitar tiempos de carrera
