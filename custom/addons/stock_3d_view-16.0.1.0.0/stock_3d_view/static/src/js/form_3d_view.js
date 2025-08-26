@@ -76,50 +76,46 @@ class OpenForm3D extends Component {
         const THREE = window.THREE;
         const T = this.T;
 
-        // Fondo estilo v16
         T.scene = new THREE.Scene();
         T.scene.background = new THREE.Color(0xdedede);
 
-        // Cámara
         T.camera = new THREE.PerspectiveCamera(60, root.clientWidth / root.clientHeight, 0.5, 6000);
         T.camera.position.set(600, 300, 600);
 
-        // Luces suaves (mejor contraste de aristas)
         const ambient = new THREE.AmbientLight(0xffffff, 0.9);
         const dir = new THREE.DirectionalLight(0xffffff, 0.2);
         dir.position.set(1, 2, 1);
         T.scene.add(ambient, dir);
 
-        // Renderer
         T.renderer = new THREE.WebGLRenderer({ antialias: true });
         T.renderer.setSize(root.clientWidth, root.clientHeight);
         T.renderer.setPixelRatio(window.devicePixelRatio);
         root.appendChild(T.renderer.domElement);
 
-        // Piso blanco
+        // Piso
         T.scene.add(new THREE.Mesh(
             new THREE.BoxGeometry(1200, 0, 1200),
             new THREE.MeshBasicMaterial({ color: 0xffffff })
         ));
 
-        // OrbitControls (opcional)
+        // Controles
+        T.controls = null;
         if (THREE.OrbitControls) {
-            const controls = new THREE.OrbitControls(T.camera, T.renderer.domElement);
-            if (typeof controls.update === "function") controls.update();
+            T.controls = new THREE.OrbitControls(T.camera, T.renderer.domElement);
+            if (typeof T.controls.update === "function") T.controls.update();
         }
 
-        // Leyenda
         this.mountLegend(root);
 
-        // Picking
         T.group = new THREE.Group(); T.scene.add(T.group);
         T.raycaster = new THREE.Raycaster();
         T.pointer = new THREE.Vector2();
 
-        // Construir ubicaciones
         await this.buildLocations(data);
 
-        // Eventos
+        // ⬅️ encajar cámara al conjunto
+        this.fitToGroup();
+
         T.onResize = () => {
             T.camera.aspect = root.clientWidth / root.clientHeight;
             T.camera.updateProjectionMatrix();
@@ -129,7 +125,6 @@ class OpenForm3D extends Component {
         window.addEventListener("resize", T.onResize);
         T.renderer.domElement.addEventListener("dblclick", T.onDblClick);
 
-        // Loop
         const animate = () => {
             T.animateId = requestAnimationFrame(animate);
             T.renderer.render(T.scene, T.camera);
@@ -137,34 +132,66 @@ class OpenForm3D extends Component {
         animate();
     }
 
+    // ✅ encajar cámara para ver todo
+    fitToGroup(padding = 1.25) {
+        const THREE = window.THREE;
+        const T = this.T;
+        if (!T.group || T.group.children.length === 0) return;
+
+        const box = new THREE.Box3().setFromObject(T.group);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+
+        const maxSize = Math.max(size.x, size.y, size.z);
+        const fov = (T.camera.fov * Math.PI) / 180;
+        let dist = Math.abs(maxSize / (2 * Math.tan(fov / 2)));
+        dist *= padding;
+
+        T.camera.near = Math.max(0.1, dist / 100);
+        T.camera.far = dist * 1000;
+        T.camera.position.copy(center.clone().add(new THREE.Vector3(dist, dist, dist)));
+        T.camera.lookAt(center);
+        T.camera.updateProjectionMatrix();
+
+        if (T.controls) {
+            T.controls.target.copy(center);
+            T.controls.update();
+        }
+    }
+
     // ========= Construcción de cubos + rótulos =========
     async buildLocations(data) {
         const THREE = window.THREE;
         const T = this.T;
 
-        const EDGE_COLOR = 0x404040, GREY = 0x8c8c8c, RED = 0xcc0000, GREEN = 0x00802b, YELLOW = 0xe6b800, BLUE = 0x0066ff;
+        const EDGE = 0x404040, GREY = 0x8c8c8c, RED = 0xcc0000, GREEN = 0x00802b, YELLOW = 0xe6b800, BLUE = 0x0066ff;
         const currentLocId = String(localStorage.getItem("location_id") || "");
 
         let drawn = 0;
         for (const [code, raw] of Object.entries(data || {})) {
-            console.log("[3D] item:", code, raw);
+            // v esperado v16: [x,y,z, dx, dz, dy, loc_id]
             const v = Array.isArray(raw) ? raw.map(n => Number(n)) : [];
-            // v esperado: [x,y,z, dx, dz, dy, loc_id]  (si tu endpoint usa otro orden, ajustá acá)
             let [x, y, z, dx, dz, dy, loc_id] = v;
 
-            // Defaults para evitar tamaños 0
-            dx = Number(dx) || 100;
-            dy = Number(dy) || 60;
-            dz = Number(dz) || 80;
-            x = Number(x) || 0;
-            y = Number(y) || 0;
-            z = Number(z) || 0;
+            // Defaults contra datos vacíos
+            x = Number.isFinite(x) ? x : 0;
+            y = Number.isFinite(y) ? y : 0;
+            z = Number.isFinite(z) ? z : 0;
+            dx = Number.isFinite(dx) ? dx : 100;
+            dz = Number.isFinite(dz) ? dz : 80;
+            dy = Number.isFinite(dy) ? dy : 60;
+
+            // ⬅️ Si las dimensiones son MUY chicas, escalar (por ej. vienen en cm)
+            const maxDim = Math.max(dx, dy, dz);
+            const SCALE = maxDim < 20 ? 10 : 1; // ajustá si lo ves diminuto
+            dx *= SCALE; dy *= SCALE; dz *= SCALE;
+            x *= SCALE; y *= SCALE; z *= SCALE;
 
             const geom = new THREE.BoxGeometry(dx, dy, dz);
             geom.translate(0, dy / 2, 0);
             const edges = new THREE.EdgesGeometry(geom);
 
-            // Color por ocupación (si el RPC falla → gris tenue)
+            // Colores por ocupación
             let color = GREY, opacity = 0.18;
             try {
                 const [hasQty, percent] = await this.rpc("/3Dstock/data/quantity", { loc_code: code });
@@ -179,46 +206,52 @@ class OpenForm3D extends Component {
                         opacity = 0.35;
                     }
                 }
-            } catch (e) {
-                console.warn("[3D] /quantity fallo para", code, e);
-            }
+            } catch (_) { }
 
             const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity });
             const cube = new THREE.Mesh(geom, mat);
-            const wire = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: EDGE_COLOR }));
+            const wire = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: EDGE }));
 
             cube.position.set(x, y, z);
             wire.position.set(x, y, z);
-
             cube.name = code;
             cube.userData = { color, loc_id };
 
             T.group.add(cube);
             T.scene.add(wire);
             drawn++;
+
+            // Rótulo (si tenés la fuente instalada)
+            this.addTextLabel?.(code, { x, y, z, dx, dz, dy });
         }
 
-        console.log("[3D] total dibujados:", drawn);
+        if (!drawn) {
+            // Cubo dummy para confirmar render si data vino vacío
+            const geom = new THREE.BoxGeometry(200, 80, 120);
+            const edges = new THREE.EdgesGeometry(geom);
+            const mat = new THREE.MeshBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.3 });
+            const cube = new THREE.Mesh(geom, mat);
+            const wire = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x404040 }));
+            T.group.add(cube);
+            T.scene.add(wire);
+        }
     }
-
 
     // ========= Texto sobre la cara superior =========
     addTextLabel(code, box) {
         const THREE = window.THREE;
         const { x, y, z, dx, dz, dy } = box;
-        const fontUrl = "/stock_3d_view/static/lib/three/fonts/droid_sans_bold.typeface.json";
+        const fontUrl = "/stock_3d_view/static/lib/three/fonts/droid_sans_bold.typeface.json"; // cambia 'stock_3d_view' si tu módulo se llama distinto
 
         const loader = new THREE.FontLoader();
         loader.load(fontUrl, (font) => {
             const textMaterial = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide });
             const textSize = (dx > dz) ? (dz / 2) - (dz / 2.9) : (dx / 2) - (dx / 2.9);
-
             const shapes = font.generateShapes(code, Math.max(8, textSize));
             const geo = new THREE.ShapeGeometry(shapes);
             geo.translate(0, (dy / 2) - 1, 0);
 
             const mesh = new THREE.Mesh(geo, textMaterial);
-
             if (dz > dx) {
                 mesh.rotation.y = Math.PI / 2;
                 mesh.position.set(x, y, z + (textSize * 2) + ((dx / 3.779 / 2) / 2) + (textSize / 2));
@@ -226,7 +259,7 @@ class OpenForm3D extends Component {
                 mesh.position.set(x - (textSize * 2) - ((dz / 3.779 / 2) / 2) - (textSize / 2), y, z);
             }
             this.T.scene.add(mesh);
-        });
+        }, undefined, () => { /* si falla, seguimos sin rótulo */ });
     }
 
     // ========= Interacción: doble click → diálogo =========
