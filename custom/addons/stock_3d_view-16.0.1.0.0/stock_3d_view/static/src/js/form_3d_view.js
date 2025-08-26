@@ -36,6 +36,12 @@ class OpenForm3D extends Component {
             // Traer layout
             const data = await this.rpc("/3Dstock/data/standalone", { company_id, loc_id });
 
+            // Dentro de onMounted, después de pedir data:
+        console.log("[3D] standalone data:", data, "keys:", Object.keys(data || {}).length);
+        if (!data || Object.keys(data).length === 0) {
+            console.warn("[3D] /3Dstock/data/standalone devolvió vacío. Dibujo un cubo dummy para verificar render.");
+        }
+
             // Inicializar escena
             await this.initThree(root, data);
         });
@@ -112,68 +118,94 @@ class OpenForm3D extends Component {
 
     // ========= Construcción de cubos + rótulos =========
     async buildLocations(data) {
-        const THREE = window.THREE;
-        const T = this.T;
+  const THREE = window.THREE;
+  const T = this.T;
 
-        // Paleta/opacity como v16
-        const EDGE_COLOR = 0x404040;
-        const GREY_FILL  = 0x8c8c8c;
-        const SELECTED   = 0xcc0000;
-        const GREEN      = 0x00802b;
-        const YELLOW     = 0xe6b800;
-        const BLUE       = 0x0066ff;
+  const EDGE_COLOR = 0x404040;
+  const GREY_FILL  = 0x8c8c8c;
+  const SELECTED   = 0xcc0000;
+  const GREEN      = 0x00802b;
+  const YELLOW     = 0xe6b800;
+  const BLUE       = 0x0066ff;
 
-        const currentLocId = String(localStorage.getItem("location_id"));
+  const currentLocId = String(localStorage.getItem("location_id") || "");
 
-        for (const [code, v] of Object.entries(data)) {
-            // v = [x,y,z, dx, dz, dy, loc_id]
-            const [x, y, z, dx, dz, dy, loc_id] = v.map(Number);
-            if (!dx || !dy || !dz) continue;
+  let drawn = 0;
+  for (const [code, vRaw] of Object.entries(data || {})) {
+    // Logueo bruto
+    console.log("[3D] item:", code, vRaw);
 
-            // Caja + aristas
-            const geom  = new THREE.BoxGeometry(dx, dy, dz);
-            geom.translate(0, dy / 2, 0);
-            const edges = new THREE.EdgesGeometry(geom);
+    // Algunos endpoints devuelven strings -> convierto
+    const v = Array.isArray(vRaw) ? vRaw.map(n => Number(n)) : [];
+    let [x, y, z, dx, dz, dy, loc_id] = v;
 
-            // Color por ocupación
-            let color = GREY_FILL, opacity = 0.25;
-            try {
-                const [hasQty, percent] = await this.rpc("/3Dstock/data/quantity", { loc_code: code });
-                const isCurrent = String(loc_id) === currentLocId;
+    // Coerción defensiva por si vienen 0 o undefined
+    dx = dx || v[3] || 1;
+    dz = dz || v[4] || 1;
+    dy = dy || v[5] || 1;
 
-                if (isCurrent) {
-                    if (hasQty > 0) {
-                        if (percent > 100)      { color = SELECTED; opacity = 0.6; }
-                        else if (percent > 50)  { color = YELLOW;   opacity = 0.35; }
-                        else                    { color = GREEN;    opacity = 0.35; }
-                    } else {
-                        color   = (percent === -1) ? GREEN : BLUE;
-                        opacity = 0.35;
-                    }
-                } else {
-                    color = GREY_FILL; opacity = 0.18;
-                }
-            } catch (_) {
-                color = GREY_FILL; opacity = 0.18;
-            }
-
-            const mat  = new THREE.MeshBasicMaterial({ color, transparent: true, opacity });
-            const cube = new THREE.Mesh(geom, mat);
-            const wire = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: EDGE_COLOR }));
-
-            cube.position.set(x, y, z);
-            wire.position.set(x, y, z);
-
-            cube.name = code;
-            cube.userData = { color, loc_id };
-
-            T.group.add(cube);
-            T.scene.add(wire);
-
-            // Rótulo
-            this.addTextLabel(code, { x, y, z, dx, dz, dy });
-        }
+    if (!dx || !dy || !dz) {
+      console.warn("[3D] descartado por tamaño 0:", code, vRaw);
+      continue;
     }
+
+    const geom  = new THREE.BoxGeometry(dx, dy, dz);
+    geom.translate(0, dy / 2, 0);
+    const edges = new THREE.EdgesGeometry(geom);
+
+    // Color por ocupación (si el RPC falla, sigo en gris)
+    let color = GREY_FILL, opacity = 0.25;
+    try {
+      const [hasQty, percent] = await this.rpc("/3Dstock/data/quantity", { loc_code: code });
+      const isCurrent = String(loc_id) === currentLocId;
+
+      if (isCurrent) {
+        if (hasQty > 0) {
+          if (percent > 100)      { color = SELECTED; opacity = 0.60; }
+          else if (percent > 50)  { color = YELLOW;   opacity = 0.35; }
+          else                    { color = GREEN;    opacity = 0.35; }
+        } else {
+          color   = (percent === -1) ? GREEN : BLUE;
+          opacity = 0.35;
+        }
+      } else {
+        color = GREY_FILL; opacity = 0.18;
+      }
+    } catch (e) {
+      console.warn("[3D] /quantity falló para", code, e);
+      color = GREY_FILL; opacity = 0.18;
+    }
+
+    const mat  = new THREE.MeshBasicMaterial({ color, transparent: true, opacity });
+    const cube = new THREE.Mesh(geom, mat);
+    const wire = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: EDGE_COLOR }));
+
+    // Si x,y,z vienen vacíos, ubico en 0,0,0 para ver algo
+    cube.position.set(x || 0, y || 0, z || 0);
+    wire.position.set(x || 0, y || 0, z || 0);
+
+    cube.name = code;
+    cube.userData = { color, loc_id };
+
+    this.T.group.add(cube);
+    this.T.scene.add(wire);
+    drawn++;
+  }
+
+  // Si no dibujó nada, meto un cubo dummy para confirmar render
+  if (!drawn) {
+    console.warn("[3D] No se dibujó ningún cubo. Agrego dummy.");
+    const geom  = new THREE.BoxGeometry(200, 80, 120);
+    const edges = new THREE.EdgesGeometry(geom);
+    const mat   = new THREE.MeshBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.3 });
+    const cube  = new THREE.Mesh(geom, mat);
+    const wire  = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x404040 }));
+    cube.position.set(0, 0, 0);
+    wire.position.set(0, 0, 0);
+    this.T.group.add(cube);
+    this.T.scene.add(wire);
+  }
+}
 
     // ========= Texto sobre la cara superior =========
     addTextLabel(code, box) {
