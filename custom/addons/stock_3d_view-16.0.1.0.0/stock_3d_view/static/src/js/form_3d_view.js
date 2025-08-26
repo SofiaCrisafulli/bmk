@@ -63,10 +63,13 @@ class OpenForm3D extends Component {
         ));
 
         // controles
-        if (THREE.OrbitControls) {
+       if (THREE.OrbitControls) {
             const controls = new THREE.OrbitControls(T.camera, T.renderer.domElement);
-            controls.update();
+            if (typeof controls.update === "function") {
+                controls.update();
+            }
         }
+
 
         // leyenda (HTML)
         this.mountLegend(root);
