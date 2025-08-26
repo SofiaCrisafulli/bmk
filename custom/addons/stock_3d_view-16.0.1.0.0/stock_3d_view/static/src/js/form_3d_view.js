@@ -80,7 +80,7 @@ class OpenForm3D extends Component {
         animate();
     }
 }
-OpenForm3D.template = "sstock_location_3d_templates"; // usa tu template XML (ver assets abajo)
+OpenForm3D.template = "stock_location_3d_templates"; // usa tu template XML (ver assets abajo)
 
 // Registrar la acción para el tag existente
 registry.category("actions").add("open_form_3d_view", OpenForm3D);
