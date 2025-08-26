@@ -48,7 +48,7 @@
         # tu JS (después de three)
         'stock_3d_view/static/src/js/open_form_3d_view.js',
         # tu CSS opcional
-        'stock_3d_view/static/src/scss/stock_3d_view.scss',
+        #'stock_3d_view/static/src/scss/stock_3d_view.scss',
     ],
 },
     'images': [
