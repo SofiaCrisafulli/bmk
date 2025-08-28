@@ -251,11 +251,11 @@ class OpenForm3D extends Component {
 
         const obj = hits[0].object;
 
-        // Fetch products for the clicked location code
-        const data = await this.rpc("/3Dstock/data/product", { loc_code: obj.name });
+        // Fetch products for the clicked location (use precise loc_id)
+        const data = await this.rpc("/3Dstock/data/product", { loc_id: obj.userData.loc_id, loc_code: obj.name });
         // data: { capacity, space, product_list: [[name, qty], ...] }
         const list = Array.isArray(data?.product_list) ? data.product_list : [];
-        const items = list.map(([name, qty]) => `${name} — ${qty}`);
+        const items = list.map(([name, qty]) => `${name} - ${qty}`);
 
         // Optionally add capacity/space summary at top
         if (Number.isFinite(data?.capacity)) {

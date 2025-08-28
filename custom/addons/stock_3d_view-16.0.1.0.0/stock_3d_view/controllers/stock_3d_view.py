@@ -106,7 +106,7 @@ class Stock3DView(http.Controller):
         return quant_data
 
     @http.route('/3Dstock/data/product', type='json', auth='public')
-    def get_stock_product_data(self, loc_code):
+    def get_stock_product_data(self, loc_code=None, loc_id=None):
         """
         This method is used to handle the request for data of products of
         selected location.
@@ -116,13 +116,25 @@ class Stock3DView(http.Controller):
         @return: a dictionary including total capacity, current capacity and
         products stored in selected location.
         """
-        products = request.env['stock.quant'].sudo().search(
-            [('location_id.unique_code', '=', loc_code)])
-        quantity_obj = request.env['stock.quant'].sudo().search(
-            [('location_id.unique_code', '=', loc_code)]).mapped(
-            'quantity')
-        capacity = request.env['stock.location'].sudo().search(
-            [('unique_code', '=', loc_code)]).max_capacity
+        Quant = request.env['stock.quant'].sudo()
+        Location = request.env['stock.location'].sudo()
+
+        if loc_id:
+            try:
+                loc_id = int(loc_id)
+            except Exception:
+                loc_id = False
+
+        if loc_id:
+            products = Quant.search([('location_id', '=', loc_id)])
+            quantity_obj = products.mapped('quantity')
+            loc_rec = Location.browse(loc_id)
+            capacity = loc_rec.max_capacity if loc_rec.exists() else 0
+        else:
+            products = Quant.search([('location_id.unique_code', '=', loc_code)])
+            quantity_obj = products.mapped('quantity')
+            loc_rec = Location.search([('unique_code', '=', loc_code)], limit=1)
+            capacity = loc_rec.max_capacity if loc_rec else 0
         product_list = []
         product_list.clear()
         if products:
