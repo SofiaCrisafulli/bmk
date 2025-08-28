@@ -149,11 +149,17 @@ class Stock3DView(http.Controller):
             for rec in products:
                 pid = rec.product_id.id
                 sums[pid] = sums.get(pid, 0) + rec.quantity
-            # Keep display names stable
+            # Keep display names and add UoM
+            Product = request.env['product.product'].sudo()
             for pid, qty in sums.items():
-                prod = request.env['product.product'].sudo().browse(pid)
-                name = prod.display_name if prod.exists() else str(pid)
-                product_list.append((name, qty))
+                prod = Product.browse(pid)
+                if prod and prod.exists():
+                    name = prod.display_name
+                    uom_name = prod.uom_id.name or ""
+                else:
+                    name = str(pid)
+                    uom_name = ""
+                product_list.append((name, qty, uom_name))
         load = math.fsum(quantity_obj)
         if capacity > 0:
             space = capacity - load
