@@ -11,7 +11,7 @@ class ProductsListBody extends Component {
 }
 ProductsListBody.template = xml/* xml */`
   <div style="max-height:55vh; overflow:auto;">
-    <t t-if="props.items && props.items.length">
+    <t t-if="props.items and props.items.length">
       <ul class="list-unstyled m-0">
         <t t-foreach="props.items" t-as="line" t-key="line">
           <li><t t-esc="line"/></li>
