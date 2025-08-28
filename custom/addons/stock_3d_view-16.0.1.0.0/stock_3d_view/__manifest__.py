@@ -43,7 +43,6 @@
         'stock_3d_view/static/lib/three/three.min.js',
         'stock_3d_view/static/lib/three/OrbitControls.js',
         'stock_3d_view/static/src/js/form_3d_view.js',
-        'stock_3d_view/static/src/xml/*.xml',
     ],
     # Cárgalo también en el lazy para evitar tiempos de carrera
     'web.assets_backend_lazy': [

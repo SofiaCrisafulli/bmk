@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<template>
+<templates xml:space="preserve">
     <!--adding breadcrumbs manually in stock.location form view.-->
     <t t-name="Location3DFormView">
         <div class="o_action">
@@ -27,4 +27,4 @@
             <div class="o_content"/>
         </div>
     </t>
-</template>
+</templates>

@@ -8,17 +8,30 @@ import { Dialog } from "@web/core/dialog/dialog";
 // ---------- Cuerpo del diálogo (lista simple) ----------
 class ProductsListBody extends Component {
   static props = { items: Array };
-  static template = "stock_3d.ProductsListBody";
 }
+ProductsListBody.template = xml/* xml */`
+  <div style="max-height:55vh; overflow:auto;">
+    <t t-if="props.items && props.items.length">
+      <ul class="list-unstyled m-0">
+        <t t-foreach="props.items" t-as="line" t-key="line">
+          <li><t t-esc="line"/></li>
+        </t>
+      </ul>
+    </t>
+    <t t-else="">
+      <div>No products found</div>
+    </t>
+  </div>
+`;
 
 class ProductsDialog extends Component {
     static components = { Dialog, ProductsListBody };
     static props = { title: String, items: Array };
     static template = xml/* xml */`
     <Dialog
-      t-att-title="title"
-      t-att-buttons="[{label: 'OK', primary: true}, {label: 'Cerrar', close: true}]">
-      <ProductsListBody t-att-items="items"/>
+      title="props.title"
+      buttons="[{label: 'OK', primary: true}, {label: 'Close', close: true}]">
+      <ProductsListBody items="props.items"/>
     </Dialog>
   `;
 }
