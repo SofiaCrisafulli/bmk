@@ -24,6 +24,37 @@ class ProductsListBody extends Component {
     static props = { items: Array };
 }
 
+class ProductsListBody extends Component {
+    static template = xml/* xml */`
+    <div style="max-height:55vh;overflow:auto">
+      <t t-if="items && items.length">
+        <ul class="list-unstyled m-0">
+          <t t-foreach="items" t-as="line" t-key="line">
+            <li><t t-esc="line"/></li>
+          </t>
+        </ul>
+      </t>
+      <t t-else="">
+        <div>Sin productos</div>
+      </t>
+    </div>
+  `;
+    static props = { items: Array };
+}
+
+
+class ProductsDialog extends Component {
+    static components = { Dialog, ProductsListBody };
+    static props = { title: String, items: Array };
+    static template = xml/* xml */`
+    <Dialog title="title"
+            buttons="[{label: 'OK', primary: true}, {label: 'Cerrar', close: true}]">
+      <ProductsListBody items="items"/>
+    </Dialog>
+  `;
+}
+
+
 // ---------- Escena 3D ----------
 class OpenForm3D extends Component {
     setup() {
@@ -248,15 +279,10 @@ class OpenForm3D extends Component {
             : [];
         console.log("[3D] items to render:", items);
 
-        this.dialog.add(Dialog, {
-            title: `Location: ${obj.name}`,
-            body: ProductsListBody,
-            bodyProps: { items },    // <-- ¡clave! props PARA el body
-            buttons: [
-                { label: "OK", primary: true },
-                { label: "Cerrar", close: true },
-            ],
-        });
+        this.dialog.add(ProductsDialog, { title: `Location: ${obj.name}`, items });
+        console.log("[3D] products:", products);
+        console.log("[3D] items:", items);
+
     }
 
     // ---------- UI auxiliar ----------
