@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+  <!-- Products list body used inside the dialog -->
+  <t t-name="stock_3d.ProductsListBody">
+    <div style="max-height:55vh; overflow:auto;">
+      <t t-if="items and items.length">
+        <ul class="list-unstyled m-0">
+          <t t-foreach="items" t-as="line" t-key="line">
+            <li><t t-esc="line"/></li>
+          </t>
+        </ul>
+      </t>
+      <t t-else="">
+        <div>No products found</div>
+      </t>
+    </div>
+  </t>
+  
+</templates>
+

@@ -16,9 +16,9 @@ class ProductsDialog extends Component {
     static props = { title: String, items: Array };
     static template = xml/* xml */`
     <Dialog
-      title="title"
-      buttons="[{label: 'OK', primary: true}, {label: 'Cerrar', close: true}]">
-      <ProductsListBody items="items"/>
+      t-att-title="title"
+      t-att-buttons="[{label: 'OK', primary: true}, {label: 'Cerrar', close: true}]">
+      <ProductsListBody t-att-items="items"/>
     </Dialog>
   `;
 }
@@ -237,15 +237,21 @@ class OpenForm3D extends Component {
         if (!hits.length) return;
 
         const obj = hits[0].object;
-        const currentLocId = String(localStorage.getItem("location_id"));
-        if (String(obj.userData.loc_id) !== currentLocId) return;
 
-        const products = await this.rpc("/3Dstock/data/product", { loc_code: obj.name });
-        const items = Array.isArray(products)
-            ? products.map(p => typeof p === "string" ? p : (p.display_name || p.name || JSON.stringify(p)))
-            : [];
+        // Fetch products for the clicked location code
+        const data = await this.rpc("/3Dstock/data/product", { loc_code: obj.name });
+        // data: { capacity, space, product_list: [[name, qty], ...] }
+        const list = Array.isArray(data?.product_list) ? data.product_list : [];
+        const items = list.map(([name, qty]) => `${name} — ${qty}`);
 
-        console.log("[3D] items:", items);
+        // Optionally add capacity/space summary at top
+        if (Number.isFinite(data?.capacity)) {
+            items.unshift(`Capacity: ${data.capacity}`);
+        }
+        if (Number.isFinite(data?.space)) {
+            items.unshift(`Available Space: ${data.space}`);
+        }
+
         this.dialog.add(ProductsDialog, { title: `Location: ${obj.name}`, items });
 
         console.log("[3D] products:", products);
