@@ -267,7 +267,7 @@ class OpenForm3D extends Component {
 
         this.dialog.add(ProductsDialog, { title: `Location: ${obj.name}`, items });
 
-        console.log("[3D] products:", products);
+        //console.log("[3D] products:", products);
         console.log("[3D] items:", items);
 
     }
