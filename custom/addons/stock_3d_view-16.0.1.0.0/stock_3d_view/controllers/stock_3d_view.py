@@ -125,21 +125,35 @@ class Stock3DView(http.Controller):
             except Exception:
                 loc_id = False
 
+        # Resolve the location record
         if loc_id:
-            products = Quant.search([('location_id', '=', loc_id)])
-            quantity_obj = products.mapped('quantity')
             loc_rec = Location.browse(loc_id)
-            capacity = loc_rec.max_capacity if loc_rec.exists() else 0
         else:
-            products = Quant.search([('location_id.unique_code', '=', loc_code)])
-            quantity_obj = products.mapped('quantity')
             loc_rec = Location.search([('unique_code', '=', loc_code)], limit=1)
-            capacity = loc_rec.max_capacity if loc_rec else 0
+
+        # Default fallbacks
+        capacity = 0
+        products = Quant.browse([])
+        quantity_obj = []
+
+        if loc_rec and loc_rec.exists():
+            capacity = loc_rec.max_capacity or 0
+            domain = [('location_id', 'child_of', loc_rec.id)]
+            products = Quant.search(domain)
+            quantity_obj = products.mapped('quantity')
         product_list = []
         product_list.clear()
         if products:
+            # Aggregate by product to avoid duplicates from multiple quants
+            sums = {}
             for rec in products:
-                product_list.append((rec.product_id.display_name, rec.quantity))
+                pid = rec.product_id.id
+                sums[pid] = sums.get(pid, 0) + rec.quantity
+            # Keep display names stable
+            for pid, qty in sums.items():
+                prod = request.env['product.product'].sudo().browse(pid)
+                name = prod.display_name if prod.exists() else str(pid)
+                product_list.append((name, qty))
         load = math.fsum(quantity_obj)
         if capacity > 0:
             space = capacity - load
