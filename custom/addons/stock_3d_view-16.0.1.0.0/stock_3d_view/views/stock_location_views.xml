@@ -1,20 +1,20 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8"?>
 <odoo>
     <record id="view_location_form" model="ir.ui.view">
         <field name="name">stock.location.view.form.inherit.stock_3d_view</field>
         <field name="model">stock.location</field>
-        <field name="inherit_id" ref="stock.view_location_form"/>
+        <field name="inherit_id" ref="stock.view_location_form" />
         <field name="arch" type="xml">
 
             <!-- adding a 3D button in stock.location form view -->
             <xpath expr="//sheet" position="before">
                 <header>
                     <button type="object"
-                            name="action_view_location_3d_button"
-                            string="3D"
-                            id="view_location_3d_button"
-                            class="btn btn-primary fa fa-lg fa-cubes"
-                            invisible="not location_id or length == 0 or width == 0"/>
+                        name="action_view_location_3d_button"
+                        string="3D"
+                        id="view_location_3d_button"
+                        class="btn btn-primary fa fa-lg fa-cubes"
+                        invisible="not location_id or length == 0 or width == 0" />
                 </header>
             </xpath>
 
@@ -22,17 +22,17 @@
             <xpath expr="//sheet" position="inside">
                 <notebook>
                     <page string="3D Properties"
-                          invisible="usage != 'internal'">
+                        invisible="usage != 'internal'">
                         <group>
                             <group string="Dimension">
-                                <field name="length" required="usage == 'internal'"/>
-                                <field name="width"  required="usage == 'internal'"/>
-                                <field name="height" required="usage == 'internal'"/>
+                                <field name="length" required="usage == 'internal'" />
+                                <field name="width" required="usage == 'internal'" />
+                                <field name="height" required="usage == 'internal'" />
                             </group>
                             <group string="Position">
-                                <field name="pos_x" required="usage == 'internal'"/>
-                                <field name="pos_y" required="usage == 'internal'"/>
-                                <field name="pos_z" required="usage == 'internal'"/>
+                                <field name="pos_x" required="usage == 'internal'" />
+                                <field name="pos_y" required="usage == 'internal'" />
+                                <field name="pos_z" required="usage == 'internal'" />
                             </group>
                         </group>
                     </page>
@@ -42,14 +42,14 @@
             <!-- adding unique code field of the location -->
             <xpath expr="//field[@name='usage']" position="after">
                 <field name="unique_code"
-                       invisible="usage != 'internal'"
-                       required="usage == 'internal'"/>
+                    invisible="usage != 'internal'"
+                    required="usage == 'internal'" />
             </xpath>
 
             <!-- adding maximum capacity field of the location -->
             <xpath expr="//field[@name='storage_category_id']" position="after">
                 <field name="max_capacity"
-                       invisible="usage != 'internal'"/>
+                    invisible="usage != 'internal'" />
             </xpath>
 
         </field>
@@ -66,7 +66,7 @@
         <record id="view_location_tree2" model="ir.ui.view">
             <field name="name">stock.location.view.tree.inherit.stock_3d_view</field>
             <field name="model">stock.location</field>
-            <field name="inherit_id" ref="stock.view_location_tree2"/>
+            <field name="inherit_id" ref="stock.view_location_tree2" />
             <field name="arch" type="xml">
                 <xpath expr="//tree" position="attributes">
                     <attribute name="js_class">3d_button_in_stock</attribute>
@@ -74,4 +74,38 @@
             </field>
         </record>
     </data>
+    <templates xml:space="preserve">
+
+  <t t-name="stock_3d.ProductsListDialog">
+    <div class="o_dialog">
+      <div class="o_dialog_header">
+        <h3 class="o_dialog_title"><t t-esc="props.title"/></h3>
+      </div>
+
+      <div class="o_dialog_content" style="max-height:55vh; overflow:auto;">
+        <t t-if="items and items.length">
+          <ul class="list-unstyled">
+            <t t-foreach="props.items" t-as="line" t-key="line">
+                                <!-- t-esc evita HTML injection y muestra cada ítem en su línea -->
+              <li><t t-esc="line"/></li>
+            </t>
+          </ul>
+        </t>
+        <t t-else="">
+          <div>Sin productos</div>
+        </t>
+      </div>
+
+      <div class="o_dialog_footer d-flex gap-2 justify-content-end">
+        <button type="button" class="btn btn-secondary" t-on-click="() => this.env.dialog.close()">
+          Cerrar
+        </button>
+        <button type="button" class="btn btn-primary" t-on-click="() => this.env.dialog.close()">
+          OK
+        </button>
+      </div>
+    </div>
+  </t>
+
+</templates>
 </odoo>

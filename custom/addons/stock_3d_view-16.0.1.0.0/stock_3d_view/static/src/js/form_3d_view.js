@@ -3,25 +3,40 @@
 import { Component, onMounted, onWillUnmount, xml, useRef } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
-import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
+import { Dialog } from "@web/core/dialog/dialog";
 
+// ---------- Cuerpo del diálogo (lista simple) ----------
+class ProductsListBody extends Component {
+    static template = xml/* xml */`
+      <div style="max-height:55vh;overflow:auto">
+        <t t-if="items and items.length">
+          <ul class="list-unstyled m-0">
+            <t t-foreach="items" t-as="line" t-key="line">
+              <li><t t-esc="line"/></li>
+            </t>
+          </ul>
+        </t>
+        <t t-else="">
+          <div>Sin productos</div>
+        </t>
+      </div>
+    `;
+    static props = { items: Array };
+}
+
+// ---------- Escena 3D ----------
 class OpenForm3D extends Component {
     setup() {
-        // Servicios
         this.rpc = useService("rpc");
         this.dialog = useService("dialog");
-
-        // Contenedor del canvas
         this.containerRef = useRef("container");
 
-        // Estado/refs de THREE
         this.T = {
             scene: null, camera: null, renderer: null, group: null,
             raycaster: null, pointer: null, animateId: null,
-            onResize: null, onDblClick: null,
+            onResize: null, onDblClick: null, controls: null,
         };
 
-        // Montaje
         onMounted(async () => {
             const root = this.containerRef.el;
             if (!root) return;
@@ -32,46 +47,34 @@ class OpenForm3D extends Component {
             if (ctx.company_id) localStorage.setItem("company_id", ctx.company_id);
             if (ctx.loc_id) localStorage.setItem("location_id", ctx.loc_id);
 
-            // 1) Traer data y loguear
-            let data;
+            let data = {};
             try {
                 data = await this.rpc("/3Dstock/data/standalone", { company_id, loc_id });
             } catch (e) {
                 console.error("[3D] RPC standalone error:", e);
-                data = {};
             }
-            console.log("[3D] standalone keys:", Object.keys(data || {}).length, "sample:", Object.entries(data || {})[0]);
 
-            // 2) Inicializar escena
             await this.initThree(root, data);
 
-            // 3) Si no hay cubos, dibujar uno de prueba para validar render
+            // Si no hay cubos, agregar uno de test.
             setTimeout(() => {
                 const count = this.T.group?.children?.length || 0;
-                console.log("[3D] cubos dibujados:", count);
                 if (count === 0) {
-                    console.warn("[3D] No hay cubos. Dibujo uno de prueba.");
                     const THREE = window.THREE;
                     const geom = new THREE.BoxGeometry(200, 80, 120);
                     const edges = new THREE.EdgesGeometry(geom);
                     const mat = new THREE.MeshBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.3 });
                     const cube = new THREE.Mesh(geom, mat);
                     const wire = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x404040 }));
-                    cube.position.set(0, 0, 0);
-                    wire.position.set(0, 0, 0);
                     this.T.group.add(cube);
                     this.T.scene.add(wire);
-                    console.log("[3D] cubo test agregado");
                 }
             }, 0);
         });
 
-
-        // Desmontaje
         onWillUnmount(() => this.teardownThree());
     }
 
-    // ========= 3D: escena/base/eventos =========
     async initThree(root, data) {
         const THREE = window.THREE;
         const T = this.T;
@@ -92,29 +95,17 @@ class OpenForm3D extends Component {
         T.renderer.setPixelRatio(window.devicePixelRatio);
         root.appendChild(T.renderer.domElement);
 
-        T.controls = null;
-        if (window.THREE && THREE.OrbitControls) {
+        if (THREE.OrbitControls) {
             T.controls = new THREE.OrbitControls(T.camera, T.renderer.domElement);
-            if (typeof T.controls.update === "function") {
-                T.controls.update();
-            }
-            console.log("[3D] OrbitControls OK:", typeof T.controls.update);
+            T.controls.update?.();
         } else {
             console.warn("[3D] OrbitControls no disponible");
         }
 
-        // Piso
         T.scene.add(new THREE.Mesh(
             new THREE.BoxGeometry(1200, 0, 1200),
             new THREE.MeshBasicMaterial({ color: 0xffffff })
         ));
-
-        // Controles
-        T.controls = null;
-        if (THREE.OrbitControls) {
-            T.controls = new THREE.OrbitControls(T.camera, T.renderer.domElement);
-            if (typeof T.controls.update === "function") T.controls.update();
-        }
 
         this.mountLegend(root);
 
@@ -123,8 +114,6 @@ class OpenForm3D extends Component {
         T.pointer = new THREE.Vector2();
 
         await this.buildLocations(data);
-
-
         this.fitToGroup();
 
         T.onResize = () => {
@@ -143,19 +132,16 @@ class OpenForm3D extends Component {
         animate();
     }
 
-
     fitToGroup(padding = 1.25) {
         const THREE = window.THREE;
         const T = this.T;
         if (!T.group || T.group.children.length === 0) return;
-
         const box = new THREE.Box3().setFromObject(T.group);
         const size = box.getSize(new THREE.Vector3());
         const center = box.getCenter(new THREE.Vector3());
-
         const maxSize = Math.max(size.x, size.y, size.z);
         const fov = (T.camera.fov * Math.PI) / 180;
-        let dist = Math.abs(maxSize / (2 * Math.tan(fov / 2))) * padding;
+        const dist = Math.abs(maxSize / (2 * Math.tan(fov / 2))) * padding;
 
         T.camera.near = Math.max(0.1, dist / 100);
         T.camera.far = dist * 1000;
@@ -164,16 +150,11 @@ class OpenForm3D extends Component {
         T.camera.updateProjectionMatrix();
 
         if (T.controls) {
-            if (typeof T.controls.target?.copy === "function") {
-                T.controls.target.copy(center);
-            }
-            if (typeof T.controls.update === "function") {
-                T.controls.update();
-            }
+            T.controls.target?.copy?.(center);
+            T.controls.update?.();
         }
     }
 
-    // ========= Construcción de cubos + rótulos =========
     async buildLocations(data) {
         const THREE = window.THREE;
         const T = this.T;
@@ -183,11 +164,9 @@ class OpenForm3D extends Component {
 
         let drawn = 0;
         for (const [code, raw] of Object.entries(data || {})) {
-            // v esperado v16: [x,y,z, dx, dz, dy, loc_id]
             const v = Array.isArray(raw) ? raw.map(n => Number(n)) : [];
             let [x, y, z, dx, dz, dy, loc_id] = v;
 
-            // Defaults contra datos vacíos
             x = Number.isFinite(x) ? x : 0;
             y = Number.isFinite(y) ? y : 0;
             z = Number.isFinite(z) ? z : 0;
@@ -195,9 +174,8 @@ class OpenForm3D extends Component {
             dz = Number.isFinite(dz) ? dz : 80;
             dy = Number.isFinite(dy) ? dy : 60;
 
-            // ⬅️ Si las dimensiones son MUY chicas, escalar (por ej. vienen en cm)
             const maxDim = Math.max(dx, dy, dz);
-            const SCALE = maxDim < 20 ? 10 : 1; // ajustá si lo ves diminuto
+            const SCALE = maxDim < 20 ? 10 : 1;
             dx *= SCALE; dy *= SCALE; dz *= SCALE;
             x *= SCALE; y *= SCALE; z *= SCALE;
 
@@ -205,7 +183,6 @@ class OpenForm3D extends Component {
             geom.translate(0, dy / 2, 0);
             const edges = new THREE.EdgesGeometry(geom);
 
-            // Colores por ocupación
             let color = GREY, opacity = 0.18;
             try {
                 const [hasQty, percent] = await this.rpc("/3Dstock/data/quantity", { loc_code: code });
@@ -220,7 +197,7 @@ class OpenForm3D extends Component {
                         opacity = 0.35;
                     }
                 }
-            } catch (_) { }
+            } catch (_) {}
 
             const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity });
             const cube = new THREE.Mesh(geom, mat);
@@ -234,13 +211,9 @@ class OpenForm3D extends Component {
             T.group.add(cube);
             T.scene.add(wire);
             drawn++;
-
-            // Rótulo (si tenés la fuente instalada)
-            this.addTextLabel?.(code, { x, y, z, dx, dz, dy });
         }
 
         if (!drawn) {
-            // Cubo dummy para confirmar render si data vino vacío
             const geom = new THREE.BoxGeometry(200, 80, 120);
             const edges = new THREE.EdgesGeometry(geom);
             const mat = new THREE.MeshBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.3 });
@@ -251,32 +224,7 @@ class OpenForm3D extends Component {
         }
     }
 
-    // ========= Texto sobre la cara superior =========
-    addTextLabel(code, box) {
-        const THREE = window.THREE;
-        const { x, y, z, dx, dz, dy } = box;
-        const fontUrl = "/stock_3d_view/static/lib/three/fonts/droid_sans_bold.typeface.json"; // cambia 'stock_3d_view' si tu módulo se llama distinto
-
-        const loader = new THREE.FontLoader();
-        loader.load(fontUrl, (font) => {
-            const textMaterial = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide });
-            const textSize = (dx > dz) ? (dz / 2) - (dz / 2.9) : (dx / 2) - (dx / 2.9);
-            const shapes = font.generateShapes(code, Math.max(8, textSize));
-            const geo = new THREE.ShapeGeometry(shapes);
-            geo.translate(0, (dy / 2) - 1, 0);
-
-            const mesh = new THREE.Mesh(geo, textMaterial);
-            if (dz > dx) {
-                mesh.rotation.y = Math.PI / 2;
-                mesh.position.set(x, y, z + (textSize * 2) + ((dx / 3.779 / 2) / 2) + (textSize / 2));
-            } else {
-                mesh.position.set(x - (textSize * 2) - ((dz / 3.779 / 2) / 2) - (textSize / 2), y, z);
-            }
-            this.T.scene.add(mesh);
-        }, undefined, () => { /* si falla, seguimos sin rótulo */ });
-    }
-
-    // ========= Interacción: doble click → diálogo =========
+    // ---------- Doble click: abrir diálogo ----------
     async onCanvasDblClick(event) {
         const T = this.T;
         const rect = T.renderer.domElement.getBoundingClientRect();
@@ -294,23 +242,22 @@ class OpenForm3D extends Component {
 
         const products = await this.rpc("/3Dstock/data/product", { loc_code: obj.name });
 
-        const bodyHtml = (products && products.length)
-            ? `<div style="max-height:55vh;overflow:auto">
-                ${products.map((p) => `<div>${String(p).replace(/[&<>"]/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[s]))}</div>`).join("")}
-            </div>`
-            : "<div>Sin productos</div>";
+        const items = Array.isArray(products)
+            ? products.map((p) => (typeof p === "string" ? p : (p.display_name || p.name || JSON.stringify(p))))
+            : [];
 
-        this.dialog.add(ConfirmationDialog, {
+        this.dialog.add(Dialog, {
             title: `Location: ${obj.name}`,
-            body: bodyHtml,
-            confirmLabel: "OK",
-            cancelLabel: "Cerrar",
-            confirm: () => { },
-            cancel: () => { },
+            body: ProductsListBody,
+            props: { items },
+            buttons: [
+                { label: "OK", primary: true },
+                { label: "Cerrar", close: true },
+            ],
         });
     }
 
-    // ========= UI auxiliar =========
+    // ---------- UI auxiliar ----------
     mountLegend(root) {
         const legend = document.createElement("div");
         legend.style.cssText =
@@ -320,7 +267,7 @@ class OpenForm3D extends Component {
         <div style="display:flex;align-items:center;gap:6px;margin:2px 0"><span style="width:12px;height:12px;background:#e6b800;display:inline-block"></span> Almost Full</div>
         <div style="display:flex;align-items:center;gap:6px;margin:2px 0"><span style="width:12px;height:12px;background:#00802b;display:inline-block"></span> Free Space</div>
         <div style="display:flex;align-items:center;gap:6px;margin:2px 0"><span style="width:12px;height:12px;background:#0066ff;display:inline-block"></span> No Product/Load</div>
-    `;
+      `;
         root.style.position = "relative";
         root.appendChild(legend);
     }
@@ -332,17 +279,17 @@ class OpenForm3D extends Component {
             T.renderer?.domElement?.removeEventListener("dblclick", T.onDblClick);
             if (T.animateId) cancelAnimationFrame(T.animateId);
             T.renderer?.dispose?.();
-        } catch (_) { }
+        } catch (_) {}
     }
 }
 
-// Template inline (evita assets_qweb mientras migrás)
+// ---------- Template del client action ----------
 OpenForm3D.template = xml/* xml */`
-<div class="o_3d_wrap">
-<div t-ref="container" class="o_3d_container" style="width:100%; height:70vh; position:relative;"></div>
-</div>
+  <div class="o_3d_wrap">
+    <div t-ref="container" class="o_3d_container" style="width:100%; height:70vh; position:relative;"></div>
+  </div>
 `;
 
-// Registro del client action
+// ---------- Registro ----------
 registry.category("actions").add("open_form_3d_view", OpenForm3D);
 export default OpenForm3D;
