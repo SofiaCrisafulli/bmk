@@ -8,26 +8,8 @@ import { Dialog } from "@web/core/dialog/dialog";
 // ---------- Cuerpo del diálogo (lista simple) ----------
 class ProductsListBody extends Component {
     static template = xml/* xml */`
-      <div style="max-height:55vh;overflow:auto">
-        <t t-if="items and items.length">
-          <ul class="list-unstyled m-0">
-            <t t-foreach="items" t-as="line" t-key="line">
-              <li><t t-esc="line"/></li>
-            </t>
-          </ul>
-        </t>
-        <t t-else="">
-          <div>Sin productos</div>
-        </t>
-      </div>
-    `;
-    static props = { items: Array };
-}
-
-class ProductsListBody extends Component {
-    static template = xml/* xml */`
     <div style="max-height:55vh;overflow:auto">
-      <t t-if="items && items.length">
+      <t t-if="items and items.length">
         <ul class="list-unstyled m-0">
           <t t-foreach="items" t-as="line" t-key="line">
             <li><t t-esc="line"/></li>
@@ -42,14 +24,15 @@ class ProductsListBody extends Component {
     static props = { items: Array };
 }
 
-
 class ProductsDialog extends Component {
     static components = { Dialog, ProductsListBody };
     static props = { title: String, items: Array };
     static template = xml/* xml */`
-    <Dialog title="title"
-            buttons="[{label: 'OK', primary: true}, {label: 'Cerrar', close: true}]">
-      <ProductsListBody items="items"/>
+    <!-- OJO: usar t-att-title y t-props -->
+    <Dialog
+      t-att-title="title"
+      t-att-buttons="[{label: 'OK', primary: true}, {label: 'Cerrar', close: true}]">
+      <ProductsListBody t-props="{'items': items}"/>
     </Dialog>
   `;
 }
@@ -272,12 +255,12 @@ class OpenForm3D extends Component {
         if (String(obj.userData.loc_id) !== currentLocId) return;
 
         const products = await this.rpc("/3Dstock/data/product", { loc_code: obj.name });
-        console.log("[3D] products RPC:", products);
-
         const items = Array.isArray(products)
-            ? products.map((p) => (typeof p === "string" ? p : (p.display_name || p.name || JSON.stringify(p))))
+            ? products.map(p => typeof p === "string" ? p : (p.display_name || p.name || JSON.stringify(p)))
             : [];
-        console.log("[3D] items to render:", items);
+
+        this.dialog.add(ProductsDialog, { title: `Location: ${obj.name}`, items });
+
 
         this.dialog.add(ProductsDialog, { title: `Location: ${obj.name}`, items });
         console.log("[3D] products:", products);
