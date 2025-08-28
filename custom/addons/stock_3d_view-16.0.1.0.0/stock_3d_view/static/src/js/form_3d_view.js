@@ -197,7 +197,7 @@ class OpenForm3D extends Component {
                         opacity = 0.35;
                     }
                 }
-            } catch (_) {}
+            } catch (_) { }
 
             const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity });
             const cube = new THREE.Mesh(geom, mat);
@@ -241,15 +241,17 @@ class OpenForm3D extends Component {
         if (String(obj.userData.loc_id) !== currentLocId) return;
 
         const products = await this.rpc("/3Dstock/data/product", { loc_code: obj.name });
+        console.log("[3D] products RPC:", products);
 
         const items = Array.isArray(products)
             ? products.map((p) => (typeof p === "string" ? p : (p.display_name || p.name || JSON.stringify(p))))
             : [];
+        console.log("[3D] items to render:", items);
 
         this.dialog.add(Dialog, {
             title: `Location: ${obj.name}`,
             body: ProductsListBody,
-            props: { items },
+            bodyProps: { items },    // <-- ¡clave! props PARA el body
             buttons: [
                 { label: "OK", primary: true },
                 { label: "Cerrar", close: true },
@@ -279,7 +281,7 @@ class OpenForm3D extends Component {
             T.renderer?.domElement?.removeEventListener("dblclick", T.onDblClick);
             if (T.animateId) cancelAnimationFrame(T.animateId);
             T.renderer?.dispose?.();
-        } catch (_) {}
+        } catch (_) { }
     }
 }
 
