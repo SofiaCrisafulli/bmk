@@ -7,21 +7,8 @@ import { Dialog } from "@web/core/dialog/dialog";
 
 // ---------- Cuerpo del diálogo (lista simple) ----------
 class ProductsListBody extends Component {
-    static props = { items: Array };
-    static template = xml/* xml */`
-    <div style="max-height:55vh;overflow:auto">
-      <t t-if="items && items.length">
-        <ul class="list-unstyled m-0">
-          <t t-foreach="items" t-as="line" t-key="line">
-            <li><t t-esc="line"/></li>
-          </t>
-        </ul>
-      </t>
-      <t t-else="">
-        <div>Sin productos</div>
-      </t>
-    </div>
-  `;
+  static props = { items: Array };
+  static template = "stock_3d.ProductsListBody";
 }
 
 class ProductsDialog extends Component {

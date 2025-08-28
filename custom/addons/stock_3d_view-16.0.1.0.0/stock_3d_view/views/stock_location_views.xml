@@ -75,37 +75,20 @@
         </record>
     </data>
     <templates xml:space="preserve">
-
-  <t t-name="stock_3d.ProductsListDialog">
-    <div class="o_dialog">
-      <div class="o_dialog_header">
-        <h3 class="o_dialog_title"><t t-esc="props.title"/></h3>
-      </div>
-
-      <div class="o_dialog_content" style="max-height:55vh; overflow:auto;">
-        <t t-if="items and items.length">
-          <ul class="list-unstyled">
-            <t t-foreach="props.items" t-as="line" t-key="line">
-                                <!-- t-esc evita HTML injection y muestra cada ítem en su línea -->
-              <li><t t-esc="line"/></li>
-            </t>
-          </ul>
-        </t>
-        <t t-else="">
-          <div>Sin productos</div>
-        </t>
-      </div>
-
-      <div class="o_dialog_footer d-flex gap-2 justify-content-end">
-        <button type="button" class="btn btn-secondary" t-on-click="() => this.env.dialog.close()">
-          Cerrar
-        </button>
-        <button type="button" class="btn btn-primary" t-on-click="() => this.env.dialog.close()">
-          OK
-        </button>
-      </div>
+  <!-- Body simple para el diálogo. OJO: usar 'items', NO 'props.items' -->
+  <t t-name="stock_3d.ProductsListBody">
+    <div style="max-height:55vh; overflow:auto;">
+      <t t-if="items and items.length">
+        <ul class="list-unstyled m-0">
+          <t t-foreach="items" t-as="line" t-key="line">
+            <li><t t-esc="line"/></li>
+          </t>
+        </ul>
+      </t>
+      <t t-else="">
+        <div>Sin productos</div>
+      </t>
     </div>
   </t>
-
 </templates>
 </odoo>
