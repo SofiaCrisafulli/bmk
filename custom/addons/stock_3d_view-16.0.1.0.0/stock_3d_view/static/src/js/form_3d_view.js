@@ -58,6 +58,7 @@ class OpenForm3D extends Component {
         };
 
         onMounted(async () => {
+            console.log('[3D] OpenForm3D mounted v1.1');
             const root = this.containerRef.el;
             if (!root) return;
 
@@ -235,7 +236,7 @@ class OpenForm3D extends Component {
         // 3) Group by base X/Z and stack vertically if needed
         const groups = new Map();
         for (const e of entries) {
-            const k = `${e.x}|${e.z}`;
+            const k = `${Math.round(e.x)}|${Math.round(e.z)}`; // robust grouping by base position
             if (!groups.has(k)) groups.set(k, []);
             groups.get(k).push(e);
         }
@@ -243,6 +244,7 @@ class OpenForm3D extends Component {
         const GAP = 4; // small gap between stacked boxes (in scaled units)
         let drawn = 0;
 
+        console.log('[3D] locations:', entries.length, 'groups:', groups.size);
         for (const group of groups.values()) {
             // Apply uniform scale to the whole group
             for (const e of group) {

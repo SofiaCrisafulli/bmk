@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <odoo>
     <record id="view_location_form" model="ir.ui.view">
         <field name="name">stock.location.view.form.inherit.stock_3d_view</field>
@@ -75,7 +75,7 @@
         </record>
     </data>
     <templates xml:space="preserve">
-  <!-- Body simple para el diálogo. OJO: usar 'items', NO 'props.items' -->
+  <!-- Body simple para el diÃ¡logo. OJO: usar 'items', NO 'props.items' -->
   <t t-name="stock_3d.ProductsListBody">
     <div style="max-height:55vh; overflow:auto;">
       <t t-if="items and items.length">
@@ -95,12 +95,12 @@
  <data>
     <template id="assets_backend" name="3D WMS Assets" inherit_id="web.assets_backend">
       <xpath expr="." position="inside">
-        <!-- Si ya tenés three.js, omití esta línea -->
+        <!-- Si ya tenÃ©s three.js, omitÃ­ esta lÃ­nea -->
         <script type="text/javascript" src="/stock_3d_view/static/lib/three/three.min.js"/>
-        <!-- OrbitControls (necesaria si querés orbitar con el mouse) -->
+        <!-- OrbitControls (necesaria si querÃ©s orbitar con el mouse) -->
         <script type="text/javascript" src="/stock_3d_view/static/lib/three/OrbitControls.js"/>
-        <!-- Tu acción cliente -->
-        <script type="module" src="/stock_3d_view/static/src/js/open_form_3d_view.js"/>
+        <!-- Tu acciÃ³n cliente -->
+        <script type="module" src="/stock_3d_view/static/src/js/form_3d_view.js"/>
       </xpath>
     </template>
   </data>

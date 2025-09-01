@@ -21,7 +21,7 @@
 #############################################################################
 {
     'name': "Stock 3D View",
-    'version': '17.0.1.0.0',
+    'version': '17.0.1.0.1',
     'category': 'Warehouse',
     'summary': """Virtual 3D Visualization of warehouses and Locations""",
     'description': """This module innovative addition to the inventory and 
