@@ -96,11 +96,11 @@
     <template id="assets_backend" name="3D WMS Assets" inherit_id="web.assets_backend">
       <xpath expr="." position="inside">
         <!-- Si ya tenés three.js, omití esta línea -->
-        <script type="text/javascript" src="/your_module_name/static/lib/three/three.min.js"/>
+        <script type="text/javascript" src="/stock_3d_view/static/lib/three/three.min.js"/>
         <!-- OrbitControls (necesaria si querés orbitar con el mouse) -->
-        <script type="text/javascript" src="/your_module_name/static/lib/three/OrbitControls.js"/>
+        <script type="text/javascript" src="/stock_3d_view/static/lib/three/OrbitControls.js"/>
         <!-- Tu acción cliente -->
-        <script type="module" src="/your_module_name/static/src/js/open_form_3d_view.js"/>
+        <script type="module" src="/stock_3d_view/static/src/js/open_form_3d_view.js"/>
       </xpath>
     </template>
   </data>
