@@ -50,18 +50,31 @@ class StockLocation(models.Model):
          "The location code must be unique per company !"),
     ]
 
-    def action_view_location_3d_button(self):
-        self.ensure_one()
-        domain = [('id', 'child_of', self.id), ('usage', '=', 'internal')]
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'open_form_3d_view',
-            'name': 'Mapa 3D',
-            'context': {
-                'location_domain': domain,
-                'parent_location_id': self.id,
-                'loc_id': self.id,          # si lo usás en tu RPC opcional
-                'company_id': self.company_id.id,
-            },
-            'target': 'current',
-        }
+   def action_view_location_3d_button(self):
+    self.ensure_one()
+    # Queremos SOLO las ubicaciones con el mismo padre (location_id) que la actual.
+    if self.location_id:
+        # La actual tiene padre -> mostrar a todos los que comparten ese padre (hermanos + la actual)
+        domain = [
+            ('usage', '=', 'internal'),
+            ('location_id', '=', self.location_id.id),
+        ]
+    else:
+        # La actual es raíz -> mostrar solo las raíces (location_id = False)
+        domain = [
+            ('usage', '=', 'internal'),
+            ('location_id', '=', False),
+        ]
+
+    return {
+        'type': 'ir.actions.client',
+        'tag': 'open_form_3d_view',
+        'name': 'Mapa 3D',
+        'context': {
+            'location_domain': domain,
+            'parent_location_id': self.location_id.id if self.location_id else False,
+            'loc_id': self.id,                # por si tu RPC lo usa
+            'company_id': self.company_id.id,
+        },
+        'target': 'current',
+    }

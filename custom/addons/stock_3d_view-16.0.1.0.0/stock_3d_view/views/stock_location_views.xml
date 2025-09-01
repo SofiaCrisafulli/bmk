@@ -14,7 +14,7 @@
                         string="3D"
                         id="view_location_3d_button"
                         class="btn btn-primary fa fa-lg fa-cubes"
-                        invisible="not location_id or length == 0 or width == 0" />
+                       invisible="usage != 'internal' or length == 0 or width == 0 or height == 0"/>
                 </header>
             </xpath>
 
