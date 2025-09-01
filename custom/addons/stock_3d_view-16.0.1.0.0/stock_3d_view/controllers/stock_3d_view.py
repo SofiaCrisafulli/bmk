@@ -175,28 +175,66 @@ class Stock3DView(http.Controller):
     @http.route('/3Dstock/data/standalone', type='json', auth='public')
     def get_standalone_stock_data(self, company_id, loc_id):
         """
-        This method is used to handle the request for individual location data.
-        ------------------------------------------------
-        @param self: object pointer.
-        @param company_id: the current company id.
-        @param loc_id: the selected location code.
-        @return: a dictionary including of selected location's dimensions and
-        positions.
+        Return only the locations that belong to the "main" location of the
+        clicked one in the 3D view.
+
+        Rules:
+        - If the clicked location has children (internal, active), show its children.
+        - Otherwise, show its siblings (same parent), i.e., locations whose
+          parent is the clicked location's parent.
+
+        Payload for each location keeps compatibility with the frontend:
+        [pos_x, pos_y, pos_z, length, width, height, loc.id]
         """
-        warehouse = request.env['stock.location'].sudo().search(
-            [('company_id.id', '=', int(company_id)),
-             ('id', '=', int(loc_id))]).mapped('warehouse_id')
-        locations = request.env['stock.location'].sudo().search(
-            [('company_id.id', '=', int(company_id)),
-             ('active', '=', 'true'),
-             ('usage', '=', 'internal')])
+        Location = request.env['stock.location'].sudo()
+        try:
+            company_id = int(company_id)
+            loc_id = int(loc_id)
+        except Exception:
+            return {}
+
+        current = Location.search([
+            ('company_id.id', '=', company_id),
+            ('id', '=', loc_id),
+        ], limit=1)
+        if not current:
+            return {}
+
+        # Determine the reference parent according to the rules above
+        # Consider only internal, active children
+        child_domain = [
+            ('company_id.id', '=', company_id),
+            ('active', '=', True),
+            ('usage', '=', 'internal'),
+            ('location_id', '=', current.id),
+        ]
+        has_children = bool(Location.search_count(child_domain))
+
+        if has_children:
+            # Show children of the clicked location
+            target_parent_id = current.id
+        else:
+            # Show siblings (same parent). If no parent, this will be False and
+            # thus will show root-level locations.
+            target_parent_id = current.location_id.id or False
+
+        domain = [
+            ('company_id.id', '=', company_id),
+            ('active', '=', True),
+            ('usage', '=', 'internal'),
+            ('location_id', '=', target_parent_id),
+        ]
+
+        locations = Location.search(domain)
+
         location_dict = {}
         for loc in locations:
-            if loc.warehouse_id.id == warehouse.id:
-                length = int(loc.length * 3.779 * 2)
-                width = int(loc.width * 3.779 * 2)
-                height = int(loc.height * 3.779 * 2)
-                location_dict.update(
-                    {loc.unique_code: [loc.pos_x, loc.pos_y, loc.pos_z,
-                                       length, width, height, loc.id]})
+            length = int(loc.length * 3.779 * 2)
+            width = int(loc.width * 3.779 * 2)
+            height = int(loc.height * 3.779 * 2)
+            location_dict[loc.unique_code] = [
+                loc.pos_x, loc.pos_y, loc.pos_z,
+                length, width, height, loc.id,
+            ]
+
         return location_dict
