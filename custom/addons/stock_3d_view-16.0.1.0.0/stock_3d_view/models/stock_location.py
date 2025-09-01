@@ -57,6 +57,10 @@ class StockLocation(models.Model):
         @param self: object pointer.
         @return: client action with location id and company id to display.
         """
+        self.ensure_one()
+        # Sólo hijas de esta ubicación + internas
+        domain = [('location_id', 'child_of', self.id), ('usage', '=', 'internal')]
+        
         return {
             'type': 'ir.actions.client',
             'tag': 'open_form_3d_view',
