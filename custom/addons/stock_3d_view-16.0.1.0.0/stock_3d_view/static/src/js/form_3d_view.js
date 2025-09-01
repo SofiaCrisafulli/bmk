@@ -96,8 +96,13 @@ class OpenForm3D extends Component {
     }
 
     async willStart() {
-        // Campos que necesita el 3D (ajustar x/y/z a tus campos)
-        const fields = ["name", "complete_name", "location_id", "usage", "pos_x", "pos_y", "pos_z"];
+        // Campos necesarios para el fallback
+        const fields = [
+            "name", "complete_name", "location_id", "usage",
+            "pos_x", "pos_y", "pos_z",
+            "length", "width", "height",
+            "unique_code", "id"
+        ];
         const safeDomain = this.domain.length ? this.domain : [["usage", "=", "internal"]];
         this.locations = await this.orm.searchRead("stock.location", safeDomain, fields);
     }
