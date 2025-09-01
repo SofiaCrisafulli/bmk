@@ -202,57 +202,99 @@ class OpenForm3D extends Component {
         const EDGE = 0x404040, GREY = 0x8c8c8c, RED = 0xcc0000, GREEN = 0x00802b, YELLOW = 0xe6b800, BLUE = 0x0066ff;
         const currentLocId = String(localStorage.getItem("location_id") || "");
 
-        let drawn = 0;
+        // 1) Normalize incoming data into entries
+        const entries = [];
         for (const [code, raw] of Object.entries(data || {})) {
             const v = Array.isArray(raw) ? raw.map((n) => Number(n)) : [];
             let [x, y, z, dx, dz, dy, loc_id] = v;
-
             x = Number.isFinite(x) ? x : 0;
             y = Number.isFinite(y) ? y : 0;
             z = Number.isFinite(z) ? z : 0;
             dx = Number.isFinite(dx) ? dx : 100;
             dz = Number.isFinite(dz) ? dz : 80;
             dy = Number.isFinite(dy) ? dy : 60;
+            entries.push({ code, x, y, z, dx, dz, dy, loc_id });
+        }
 
-            const maxDim = Math.max(dx, dy, dz);
-            const SCALE = maxDim < 20 ? 10 : 1;
-            dx *= SCALE; dy *= SCALE; dz *= SCALE;
-            x *= SCALE; y *= SCALE; z *= SCALE;
-
-            const geom = new THREE.BoxGeometry(dx, dy, dz);
-            geom.translate(0, dy / 2, 0);
+        if (!entries.length) {
+            const geom = new THREE.BoxGeometry(200, 80, 120);
             const edges = new THREE.EdgesGeometry(geom);
-
-            let color = GREY, opacity = 0.18;
-            try {
-                const [hasQty, percent] = await this.rpc("/3Dstock/data/quantity", { loc_code: code });
-                const isCurrent = String(loc_id) === currentLocId;
-                if (isCurrent) {
-                    if (hasQty > 0) {
-                        if (percent > 100) { color = RED; opacity = 0.60; }
-                        else if (percent > 50) { color = YELLOW; opacity = 0.35; }
-                        else { color = GREEN; opacity = 0.35; }
-                    } else {
-                        color = (percent === -1) ? GREEN : BLUE;
-                        opacity = 0.35;
-                    }
-                }
-            } catch (_) {
-                // silencioso
-            }
-
-            const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity });
+            const mat = new THREE.MeshBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.3 });
             const cube = new THREE.Mesh(geom, mat);
-            const wire = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: EDGE }));
-
-            cube.position.set(x, y, z);
-            wire.position.set(x, y, z);
-            cube.name = code;
-            cube.userData = { color, loc_id };
-
+            const wire = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x404040 }));
             T.group.add(cube);
             T.scene.add(wire);
-            drawn++;
+            return;
+        }
+
+        // 2) Use a single global scale for all boxes
+        let globalMax = 0;
+        for (const e of entries) globalMax = Math.max(globalMax, e.dx, e.dy, e.dz);
+        const SCALE = globalMax > 0 && globalMax < 20 ? 10 : 1;
+
+        // 3) Group by base X/Z and stack vertically if needed
+        const groups = new Map();
+        for (const e of entries) {
+            const k = `${e.x}|${e.z}`;
+            if (!groups.has(k)) groups.set(k, []);
+            groups.get(k).push(e);
+        }
+
+        const GAP = 4; // small gap between stacked boxes (in scaled units)
+        let drawn = 0;
+
+        for (const group of groups.values()) {
+            // Apply uniform scale to the whole group
+            for (const e of group) {
+                e.x *= SCALE; e.y *= SCALE; e.z *= SCALE;
+                e.dx *= SCALE; e.dy *= SCALE; e.dz *= SCALE;
+            }
+
+            if (group.length > 1) {
+                // Stack along Y so they don't overlap visually
+                const baseY = Math.min(...group.map((e) => e.y));
+                group.sort((a, b) => (a.dy - b.dy) || String(a.code).localeCompare(String(b.code)));
+                let cursorY = baseY;
+                for (const e of group) {
+                    e.y = cursorY;
+                    cursorY += e.dy + GAP;
+                }
+            }
+
+            for (const e of group) {
+                const geom = new THREE.BoxGeometry(e.dx, e.dy, e.dz);
+                geom.translate(0, e.dy / 2, 0);
+                const edges = new THREE.EdgesGeometry(geom);
+
+                let color = GREY, opacity = 0.18;
+                try {
+                    const [hasQty, percent] = await this.rpc("/3Dstock/data/quantity", { loc_code: e.code });
+                    const isCurrent = String(e.loc_id) === currentLocId;
+                    if (isCurrent) {
+                        if (hasQty > 0) {
+                            if (percent > 100) { color = RED; opacity = 0.60; }
+                            else if (percent > 50) { color = YELLOW; opacity = 0.35; }
+                            else { color = GREEN; opacity = 0.35; }
+                        } else {
+                            color = (percent === -1) ? GREEN : BLUE;
+                            opacity = 0.35;
+                        }
+                    }
+                } catch (_) { /* silencioso */ }
+
+                const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity });
+                const cube = new THREE.Mesh(geom, mat);
+                const wire = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: EDGE }));
+
+                cube.position.set(e.x, e.y, e.z);
+                wire.position.set(e.x, e.y, e.z);
+                cube.name = e.code;
+                cube.userData = { color, loc_id: e.loc_id };
+
+                T.group.add(cube);
+                T.scene.add(wire);
+                drawn++;
+            }
         }
 
         if (!drawn) {
