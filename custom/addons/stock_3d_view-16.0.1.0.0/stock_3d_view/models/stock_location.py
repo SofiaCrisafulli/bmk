@@ -51,21 +51,17 @@ class StockLocation(models.Model):
     ]
 
     def action_view_location_3d_button(self):
-        """
-        This method is used to handle the view_location_3d_button button action.
-        ------------------------------------------------
-        @param self: object pointer.
-        @return: client action with location id and company id to display.
-        """
         self.ensure_one()
-        # Sólo hijas de esta ubicación + internas
-        domain = [('location_id', 'child_of', self.id), ('usage', '=', 'internal')]
-        
+        domain = [('id', 'child_of', self.id), ('usage', '=', 'internal')]
         return {
             'type': 'ir.actions.client',
             'tag': 'open_form_3d_view',
+            'name': 'Mapa 3D',
             'context': {
-                'loc_id': self.id,
+                'location_domain': domain,
+                'parent_location_id': self.id,
+                'loc_id': self.id,          # si lo usás en tu RPC opcional
                 'company_id': self.company_id.id,
-            }
+            },
+            'target': 'current',
         }
